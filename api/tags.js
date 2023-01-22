@@ -6,40 +6,49 @@ const {
   getPostsByTagName
 } = require('../db');
 
-tagsRouter.get('/', async (req, res, next) => {
-  try {
-    const tags = await getAllTags();
+const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = process.env;
+
+tagsRouter.use((req, res, next) => {
+  console.log("A request is being made to /tags");
+
+  next();
+});
+
+
+tagsRouter.get('/:tagName/posts', async (req, res, next) => {
   
-    res.send({
-      tags
+  const { tagName } = req.params;
+  
+  const prefix = 'Bearer ';
+  const auth = req.header('Authorization');
+  const token = auth.slice(prefix.length);
+
+  try {
+    
+    const allPosts = await getPostsByTagName(tagName)
+    const { id } = jwt.verify(token, JWT_SECRET);
+    
+
+    const  posts = allPosts.filter(post => {
+      return post.active && (post.author.id === id)
     });
+
+
+    res.send({ posts: posts })
+
   } catch ({ name, message }) {
+    
     next({ name, message });
   }
 });
 
-tagsRouter.get('/:tagName/posts', async (req, res, next) => {
-  const { tagName } = req.params;
+tagsRouter.get('/', async (req, res) => {
+  const tags = await getAllTags()
 
-  try {
-    const allPosts = await getPostsByTagName(tagName);
-
-    const posts = allPosts.filter(post => {
-      if (post.active) {
-        return true;
-      }
-
-      if (req.user && req.user.id === post.author.id) {
-        return true;
-      }
-
-      return false;
-    })
-
-    res.send({ posts });
-  } catch ({ name, message }) {
-    next({ name, message });
-  }
+  res.send({
+    tags
+  });
 });
 
 module.exports = tagsRouter;
