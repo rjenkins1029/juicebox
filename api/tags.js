@@ -1,13 +1,6 @@
-const express = require('express');
+const express = require("express");
 const tagsRouter = express.Router();
-
-const { 
-  getAllTags,
-  getPostsByTagName
-} = require('../db');
-
-const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = process.env;
+const { getAllTags, getPostsByTagName } = require("../db");
 
 tagsRouter.use((req, res, next) => {
   console.log("A request is being made to /tags");
@@ -15,40 +8,29 @@ tagsRouter.use((req, res, next) => {
   next();
 });
 
+tagsRouter.get("/", async (req, res) => {
+  const tags = await getAllTags();
 
-tagsRouter.get('/:tagName/posts', async (req, res, next) => {
-  
-  const { tagName } = req.params;
-  
-  const prefix = 'Bearer ';
-  const auth = req.header('Authorization');
-  const token = auth.slice(prefix.length);
-
-  try {
-    
-    const allPosts = await getPostsByTagName(tagName)
-    const { id } = jwt.verify(token, JWT_SECRET);
-    
-
-    const  posts = allPosts.filter(post => {
-      return post.active && (post.author.id === id)
-    });
-
-
-    res.send({ posts: posts })
-
-  } catch ({ name, message }) {
-    
-    next({ name, message });
-  }
+  res.send({ tags });
 });
 
-tagsRouter.get('/', async (req, res) => {
-  const tags = await getAllTags()
+tagsRouter.get("/:tagName/posts", async (req, res, next) => {
+  const { tagName } = req.params;
+  try {
+    const posts = await getPostsByTagName(tagName);
 
-  res.send({
-    tags
-  });
+    
+    if (posts.length) {
+      res.send({ posts });
+    } else {
+      next({
+        name: "UNKNOWNTAGERROR",
+        message: "Unable to find any tags by that name",
+      });
+    }
+  } catch ({ name, message }) {
+    next({ name, message });
+  }
 });
 
 module.exports = tagsRouter;
